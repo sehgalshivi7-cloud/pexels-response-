@@ -1,47 +1,12 @@
-const $=id=>document.getElementById(id);
-const rules=[
-[/\b(bus|बस|coach)\b/i,["old bus desert road","vintage bus driving","passengers inside old bus","remote bus mountain road"],"bus/travel"],
-[/\b(desert|रेगिस्तान)\b/i,["desert road aerial","remote desert road","people traveling desert"],"desert"],
-[/\b(investigat|जांच|तफ्तीश|officer|अधिकारी|intelligence|खुफिया|detective)\w*/i,["investigators examining documents","intelligence officers meeting","detectives office","investigation files desk"],"investigation"],
-[/\b(map|नक्शा|maps)\b/i,["people studying map","investigators examining map","vintage map close up"],"map"],
-[/\b(photo|photograph|फोटो|तस्वीर)\b/i,["detective examining photographs","old photographs on desk","investigation photographs close up"],"photographs"],
-[/\b(office|कमरा|दफ्तर)\b/i,["vintage intelligence office","detectives working in office","1950s office interior"],"office"],
-[/\b(mountain|पहाड़|pass|दर्रा)\b/i,["remote mountain pass road","mountain road travel","desert mountains road"],"mountain"],
-[/\b(sea|समुद्र|coast|तट)\b/i,["coastline aerial","sea shore documentary","Mediterranean coast"],"coast"],
-[/\b(Tel Aviv|तेल अवीव)\b/i,["Tel Aviv old streets","1950s Tel Aviv street","Israel vintage city street"],"city"]
-];
-function clean(s){return s.replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]))}
-function split(t){return t.split(/\n+/).flatMap(p=>p.split(/(?<=[.!?।])\s+/)).map(x=>x.trim()).filter(x=>x.length>12).slice(0,100)}
-function getQueries(line){
- let out=[], tags=[];
- for(const [re,qs,tag] of rules) if(re.test(line)){out.push(...qs);tags.push(tag)}
- if(!out.length){
-  const words=line.replace(/[^\p{L}\p{N}\s]/gu," ").split(/\s+/).filter(w=>w.length>3).slice(0,6);
-  const base=words.join(" ");
-  out=[base+" documentary footage",base+" people",base+" location"];
-  tags=["general"];
- }
- return {queries:[...new Set(out)].slice(0,5),tags:[...new Set(tags)]}
-}
-function visual(line,q){if(q.tags.includes("bus"))return "Realistic passenger bus travelling through the kind of landscape described in the narration.";if(q.tags.includes("investigation"))return "Documentary-style investigators, documents, photographs or an intelligence office matching the narration.";if(q.tags.includes("map"))return "Close documentary shots of people studying maps or planning around a desk.";if(q.tags.includes("mountain"))return "Realistic remote mountain/pass landscape and travel footage.";return "Realistic documentary footage that visually represents the narration without adding invented events."}
-function pexels(q){window.open("https://www.pexels.com/search/videos/"+encodeURIComponent(q)+"/","_blank","noopener")}
-function render(lines){
- const r=$("results");r.innerHTML="";
- if(!lines.length){r.innerHTML='<div class="empty">No usable shots found. Paste more narration.</div>';return}
- let all=[];
- lines.forEach((line,i)=>{
-  const info=getQueries(line); all.push(...info.queries);
-  const card=document.createElement("article");card.className="shot";
-  card.innerHTML=`<div class="shot-number">SHOT ${i+1}</div><div class="narration">${clean(line)}</div><div class="visual"><b>VISUAL:</b> ${clean(visual(line,info))} <span class="tag">${info.tags.join(" · ")}</span></div><div class="chips"></div><button class="copy">COPY SHOT SEARCHES</button>`;
-  const chips=card.querySelector(".chips");
-  info.queries.forEach(q=>{const b=document.createElement("button");b.className="chip";b.textContent="🔎 "+q;b.onclick=()=>pexels(q);chips.appendChild(b)});
-  card.querySelector(".copy").onclick=async()=>{await navigator.clipboard.writeText(info.queries.join("\n"));card.querySelector(".copy").textContent="COPIED ✓";setTimeout(()=>card.querySelector(".copy").textContent="COPY SHOT SEARCHES",1200)};
-  r.appendChild(card);
- });
- const top=document.createElement("div");top.className="card";top.innerHTML=`<b>${lines.length} shots generated</b><br><button class="copy" id="copyall">COPY ALL PEXELS SEARCHES</button>`;
- top.querySelector("#copyall").onclick=async()=>{await navigator.clipboard.writeText([...new Set(all)].join("\n"));top.querySelector("#copyall").textContent="COPIED ✓"};
- r.prepend(top);
-}
-$("analyze").onclick=()=>{const t=$("script").value.trim();if(!t){$("status").textContent="Paste your script first.";return}localStorage.setItem("psf_script",t);const lines=split(t);render(lines);$("status").textContent="Analysis complete. Tap any search to open Pexels."};
-$("clear").onclick=()=>{$("script").value="";$("results").innerHTML="";$("status").textContent="";localStorage.removeItem("psf_script")};
-$("script").value=localStorage.getItem("psf_script")||"";
+const $=s=>document.querySelector(s),key=$('#key'),script=$('#script'),results=$('#results');
+key.value=localStorage.getItem('pexels_api_key')||'';if(key.value)$('#status').textContent='API key saved on this device.';
+$('#save').onclick=()=>{if(!key.value.trim())return $('#status').textContent='Paste your key first.';localStorage.setItem('pexels_api_key',key.value.trim());$('#status').textContent='Saved locally on this device.'};
+$('#clear').onclick=()=>{localStorage.removeItem('pexels_api_key');key.value='';$('#status').textContent='Key cleared.'};
+script.oninput=()=>$('#words').textContent=(script.value.match(/\S+/g)||[]).length+' words';
+function split(t){return t.trim().split(/\n+/).flatMap(x=>x.split(/(?<=[.!?।])\s+/)).map(x=>x.trim()).filter(Boolean)}
+function queries(s){let x=s.toLowerCase(),q=[];let add=a=>a.forEach(v=>{if(!q.includes(v))q.push(v)});if(/बस|bus|coach/.test(x))add(['old bus driving on mountain road','vintage bus road journey','bus through barren landscape']);if(/पहाड़|mountain|पर्वत|pass|दर्रा|घाट/.test(x))add(['mountain pass road landscape','barren mountain road','rocky mountain valley road']);if(/रेगिस्तान|desert|बंजर|सूखा|sand/.test(x))add(['barren desert landscape','desert road wide shot','dry rocky desert landscape']);if(/जांच|investig|तफ्तीश|detective|अधिकारी|officer|intelligence|खुफिया/.test(x))add(['intelligence officers investigation office','detective examining documents','investigation room paperwork']);if(/नक्शा|map|मानचित्र/.test(x))add(['hands studying paper map','vintage map investigation desk','map and documents close up']);if(/फोटो|photograph|तस्वीर|picture/.test(x))add(['black and white photographs on desk','investigation photographs close up','old photographs documents desk']);if(/शहर|city|tel aviv|तेल अवीव/.test(x))add(['Tel Aviv city street','old city street documentary','Israeli city street']);if(/रात|night|अंधेरा|dark/.test(x))add(['night street documentary','dark city street','night road headlights']);if(!q.length){let w=s.replace(/[^\p{L}\p{N}\s-]/gu,' ').split(/\s+/).filter(a=>a.length>3);add([w.slice(0,5).join(' ')+' documentary footage',w.slice(0,4).join(' ')+' landscape footage','realistic '+w.slice(0,4).join(' ')+' scene'])}return q.slice(0,3)}
+async function search(q,n){let k=key.value.trim()||localStorage.getItem('pexels_api_key');let u='https://api.pexels.com/v1/videos/search?'+new URLSearchParams({query:q,orientation:'landscape',size:'medium',per_page:Math.min(20,n)});let r=await fetch(u,{headers:{Authorization:k}});if(r.status===401)throw Error('Invalid API key');if(r.status===429)throw Error('Pexels rate limit reached');if(!r.ok)throw Error('Pexels error '+r.status);return r.json()}
+function file(v){return (v.video_files||[]).find(f=>+f.width===1920&&+f.height===1080)||null}
+function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function render(i,s,qs,items){let el=document.createElement('section');el.className='shot';el.innerHTML='<div class="shothead"><div class="num">SHOT '+String(i+1).padStart(2,'0')+'</div><div class="narration">'+esc(s)+'</div><div class="queries">'+qs.map(q=>'<span class="q">'+esc(q)+'</span>').join('')+'</div></div><div class="cards">'+(items.length?items.map(({v,f})=>'<article class="card"><div class="thumb"><img loading="lazy" src="'+esc(v.image)+'"></div><div class="meta"><div>'+esc(v.user?.name||'Pexels creator')+'</div><div class="chips"><span class="chip">1920×1080</span><span class="chip">'+(v.duration||'?')+'s</span><span class="chip">'+(f.fps||'')+' fps</span></div><div class="actions"><a class="watch" href="'+esc(f.link)+'" target="_blank">Watch</a><button class="use" data-link="'+esc(f.link)+'">Use</button></div></div></article>').join(''):'<div class="empty">No exact 1920×1080 landscape result found for this shot.</div>')+'</div>';results.appendChild(el);el.querySelectorAll('.use').forEach(b=>b.onclick=()=>{navigator.clipboard?.writeText(b.dataset.link);b.textContent='Copied';setTimeout(()=>b.textContent='Use',900)})}
+$('#go').onclick=async()=>{results.innerHTML='';if(!key.value.trim()&&!localStorage.getItem('pexels_api_key'))return $('#status').textContent='Add your Pexels API key first.';let shots=split(script.value);if(!shots.length)return results.innerHTML='<section class="panel empty">Paste your narration first.</section>';let limit=+$('#count').value;$('#progress').classList.remove('hidden');$('#go').disabled=true;try{for(let i=0;i<shots.length;i++){let qs=queries(shots[i]),map=new Map();$('#progress').textContent='Finding footage for shot '+(i+1)+' of '+shots.length+'…';for(let q of qs){let d=await search(q,20);for(let v of d.videos||[]){let f=file(v);if(f&&!map.has(v.id))map.set(v.id,{v,f})}}render(i,shots[i],qs,[...map.values()].slice(0,limit))}$('#progress').textContent='Finished — '+shots.length+' shots.'}catch(e){results.insertAdjacentHTML('afterbegin','<section class="panel error">'+esc(e.message)+'</section>');$('#progress').textContent='Stopped.'}finally{$('#go').disabled=false}};
